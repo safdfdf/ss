@@ -1,0 +1,200 @@
+// Include headers
+#include <iostream>
+#include <cstdlib>
+#include <ctime>
+#include <SFML/Graphics.hpp>
+
+// Use namespaces
+using std::cout;
+using std::string;
+using std::to_string;
+using std::vector;
+using sf::CircleShape;
+using sf::Clock;
+using sf::Color;
+using sf::Event;
+using sf::FloatRect;
+using sf::Font;
+using sf::RenderWindow;
+using sf::Text;
+using sf::Texture;
+using sf::VideoMode;
+
+// Constants
+constexpr int WINDOW_WIDTH = 800;
+constexpr int WINDOW_HEIGHT = 600;
+constexpr int MENU_WIDTH = 400;
+constexpr int MENU_HEIGHT = 200;
+constexpr int CIRCLE_RADIUS = 50;
+const string EASY_MODE = "Easy Mode";
+const string HARD_MODE = "Hard Mode";
+const string GAME_OVER = "Game Over";
+const string DEMON_FACE = "demon.png"; // Path to the image file
+const Color BACKGROUND_COLOR = Color::White;
+const Color TEXT_COLOR = Color::Black;
+const Color CIRCLE_COLOR = Color::Red;
+const Font FONT; // Load a font file here
+constexpr int EASY_SPEED = 1000; // Milliseconds between circle spawns
+constexpr int HARD_SPEED = 500; // Milliseconds between circle spawns
+constexpr int SPEED_INCREASE = 15; // Percentage of speed increase every 5 seconds
+constexpr int CIRCLE_LIFETIME = 3000; // Milliseconds before circle disappears
+
+// Enum class for game modes
+enum class GameMode {
+    Easy,
+    Hard
+};
+
+// Struct to store circle data
+struct Circle {
+    CircleShape shape; // The circle shape object
+    Clock clock; // The clock to measure the lifetime of the circle
+};
+
+// Global variables
+RenderWindow window(VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "C++ Game"); // The window object
+vector<Circle> circles; // The vector to store the circles
+Clock gameClock; // The clock to measure the game time
+int score = 0; // The score of the player
+int speed = EASY_SPEED; // The speed of circle spawning
+bool gameOver = false; // The flag to indicate game over
+bool gameStarted = false; // The flag to indicate game started
+
+// Function prototypes
+void drawMenu(); // Draw the menu screen
+void drawGame(); // Draw the game screen
+void drawGameOver(); // Draw the game over screen
+void updateGame(); // Update the game logic
+void spawnCircle(); // Spawn a new circle
+void removeCircle(int index); // Remove a circle by index
+void handleClick(int x, int y); // Handle mouse click event
+
+// Main function
+int main() {
+    srand(time(nullptr)); // Initialize random seed
+
+    while (window.isOpen()) { // Main loop
+        Event event; // Event object
+
+        while (window.pollEvent(event)) { // Event loop
+            if (event.type == Event::Closed) { // Window closed event
+                window.close(); // Close the window
+            }
+
+            if (event.type == Event::MouseButtonPressed) { // Mouse button pressed event
+                handleClick(event.mouseButton.x, event.mouseButton.y); // Handle mouse click event
+            }
+        }
+
+        window.clear(BACKGROUND_COLOR); // Clear the window with background color
+
+        if (!gameStarted) { // If game not started yet
+            drawMenu(); // Draw the menu screen
+        } else if (gameOver) { // If game over
+            drawGameOver(); // Draw the game over screen
+        } else { // If game in progress
+            updateGame(); // Update the game logic
+            drawGame(); // Draw the game screen
+        }
+
+        window.display(); // Display the window contents
+    }
+
+    return 0; // Exit the program
+}
+
+// Function to draw the menu screen
+void drawMenu() {
+    Text text1(EASY_MODE, FONT); // Text object for easy mode option
+    Text text2(HARD_MODE, FONT); // Text object for hard mode option
+
+    text1.setCharacterSize(32); // Set character size for text1
+    text2.setCharacterSize(32); // Set character size for text2
+
+    text1.setFillColor(TEXT_COLOR); // Set fill color for text1
+    text2.setFillColor(TEXT_COLOR); // Set fill color for text2
+
+    FloatRect rect1 = text1.getLocalBounds(); // Get the bounding rectangle of text1
+    FloatRect rect2 = text2.getLocalBounds(); // Get the bounding rectangle of text2
+
+     text2.setOrigin(rect2.left + rect2.width / 2.0f, rect2.top + rect2.height / 2.0f); // Set origin of text2 to its center
+    text1.setPosition(WINDOW_WIDTH / 2.0f - MENU_WIDTH / 4.0f, WINDOW_HEIGHT / 2.0f); // Set position of text1 to the left of the center
+    text2.setPosition(WINDOW_WIDTH / 2.0f + MENU_WIDTH / 4.0f, WINDOW_HEIGHT / 2.0f); // Set position of text2 to the right of the center
+
+    window.draw(text1); // Draw text1 to the window
+    window.draw(text2); // Draw text2 to the window
+}
+
+// Function to draw the game screen
+void drawGame() {
+    Text text(to_string(score), FONT); // Text object for score
+    text.setCharacterSize(32); // Set character size for text
+    text.setFillColor(TEXT_COLOR); // Set fill color for text
+    FloatRect rect = text.getLocalBounds(); // Get the bounding rectangle of text
+    text.setOrigin(rect.left + rect.width / 2.0f, rect.top + rect.height / 2.0f); // Set origin of text to its center
+    text.setPosition(WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 10.0f); // Set position of text to the top center
+
+    window.draw(text); // Draw text to the window
+
+    for (auto& circle : circles) { // Loop through all circles using range-based for loop
+        window.draw(circle.shape); // Draw each circle to the window
+    }
+}
+
+// Function to draw the game over screen
+void drawGameOver() {
+    Text text(GAME_OVER, FONT); // Text object for game over message
+    text.setCharacterSize(64); // Set character size for text
+    text.setFillColor(TEXT_COLOR); // Set fill color for text
+    FloatRect rect = text.getLocalBounds(); // Get the bounding rectangle of text
+    text.setOrigin(rect.left + rect.width / 2.0f, rect.top + rect.height / 2.0f); // Set origin of text to its center
+    text.setPosition(WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f); // Set position of text to the center
+
+    window.draw(text); // Draw text to the window
+}
+
+// Function to update the game logic
+void updateGame() {
+    int time = gameClock.getElapsedTime().asMilliseconds(); // Get the elapsed time in milliseconds
+
+    if (time >= speed) { // If time is greater than or equal to speed
+        spawnCircle(); // Spawn a new circle
+        gameClock.restart(); // Restart the game clock
+        speed = speed * (100 - SPEED_INCREASE) / 100; // Decrease the speed by a percentage
+    }
+
+    for (int i = 0; i < circles.size(); i++) { // Loop through all circles
+        int lifetime = circles[i].clock.getElapsedTime().asMilliseconds(); // Get the lifetime of each circle in milliseconds
+
+        if (lifetime >= CIRCLE_LIFETIME) { // If lifetime is greater than or equal to circle lifetime
+            gameOver = true; // Set game over flag to true
+            break; // Break out of the loop
+        }
+    }
+}
+
+// Function to spawn a new circle
+void spawnCircle() {
+    Circle circle; // Circle object
+
+    circle.shape.setRadius(CIRCLE_RADIUS); // Set radius of circle shape
+    circle.shape.setFillColor(CIRCLE_COLOR); // Set fill color of circle shape
+
+    Texture texture; // Texture object
+    texture.loadFromFile(DEMON_FACE); // Load texture from image file
+
+    circle.shape.setTexture(&texture); // Set texture of circle shape
+
+    int x = rand() % (WINDOW_WIDTH - CIRCLE_RADIUS * 2) + CIRCLE_RADIUS; // Generate a random x coordinate within the window bounds
+    int y = rand() % (WINDOW_HEIGHT - CIRCLE_RADIUS * 2) + CIRCLE_RADIUS; // Generate a random y coordinate within the window bounds
+
+    circle.shape.setPosition(x, y); // Set position of circle shape
+
+    circle.clock.restart(); // Restart the clock of circle
+
+    circles.push_back(circle); // Add circle to the vector of circles
+}
+
+// Function to remove a circle by index
+void removeCircle(int index) {
+    circles.erase(circles.begin() + index); // Erase the circle from the vector of circles
